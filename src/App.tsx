@@ -284,7 +284,7 @@ export default function App() {
       } else {
         // User logged out - reset state to default
         setUserProblemStates({});
-        setLists(CURATED_LISTS);
+        setLists(BUILT_IN_LISTS);
         localStorage.removeItem('dsa_user_states');
         localStorage.removeItem('dsa_custom_lists');
         if (activeProblemRef.current) {
@@ -354,7 +354,7 @@ export default function App() {
     try {
       await signOutUser();
       setUserProblemStates({});
-      setLists(CURATED_LISTS);
+      setLists(BUILT_IN_LISTS);
       localStorage.removeItem('dsa_user_states');
       localStorage.removeItem('dsa_custom_lists');
       if (activeProblemRef.current) {
