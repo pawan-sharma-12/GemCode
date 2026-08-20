@@ -1,0 +1,18 @@
+{
+  "entities": {
+    "UserProfile": {
+      "collection": "users",
+      "fields": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "userProblemStates": { "type": "map" },
+        "customLists": { "type": "array" },
+        "savedCodes": { "type": "map" },
+        "lastActiveProblemId": { "type": "string" },
+        "updatedAt": { "type": "timestamp" }
+      }
+    }
+  }
+}

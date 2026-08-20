@@ -1,0 +1,6 @@
+{
+  "name": "C++ DSA Practice Studio & Fullscreen IDE",
+  "description": "High-performance C++ Data Structures & Algorithms IDE with full-screen tab mode, collapsible panels, bright themes, intelligent dynamic autocompletion, STL snippets, and problem runner.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
