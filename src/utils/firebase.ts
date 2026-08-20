@@ -18,12 +18,21 @@ import firebaseConfig from '../../firebase-applet-config.json';
 import { ProblemList, UserProblemState } from '../types/dsa';
 
 // Initialize Firebase App
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const dynamicConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || (firebaseConfig as any).apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || (firebaseConfig as any).authDomain,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || (firebaseConfig as any).projectId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || (firebaseConfig as any).storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || (firebaseConfig as any).messagingSenderId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || (firebaseConfig as any).appId,
+};
+
+const configuredDbId = import.meta.env.VITE_FIREBASE_DATABASE_ID || (firebaseConfig as any).firestoreDatabaseId;
+const isDefaultDb = !configuredDbId || configuredDbId === '(default)';
+
+const app = !getApps().length ? initializeApp(dynamicConfig) : getApp();
 export const auth = getAuth(app);
-export const db = getFirestore(
-  app,
-  (firebaseConfig as any).firestoreDatabaseId || undefined
-);
+export const db = isDefaultDb ? getFirestore(app) : getFirestore(app, configuredDbId);
 
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
@@ -36,12 +45,23 @@ export async function signInWithGoogle(): Promise<User | null> {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error: any) {
-    console.error('Google sign in error:', error);
-    // Helpful log for auth/unauthorized-domain
+    console.error('Google sign in error code:', error?.code, error?.message, error);
+    
+    // Provide user-friendly feedback based on specific Firebase Auth error codes
     if (error?.code === 'auth/unauthorized-domain') {
-      console.error(
-        'Domain authorization required: Please add your production domain to Firebase Console -> Authentication -> Authorized domains.'
-      );
+      const currentHost = window.location.hostname;
+      const msg = `Firebase Authorization Required: Current domain "${currentHost}" is not in the Firebase Authorized Domains list. Please add "${currentHost}" to Firebase Console -> Authentication -> Settings -> Authorized Domains.`;
+      alert(msg);
+    } else if (error?.code === 'auth/popup-blocked') {
+      alert('Sign-in popup was blocked by your browser. Please allow popups for this website and try again.');
+    } else if (error?.code === 'auth/cancelled-popup-request' || error?.code === 'auth/popup-closed-by-user') {
+      // User simply closed popup, do nothing
+    } else if (error?.code === 'auth/operation-not-allowed') {
+      alert('Google Sign-In is not enabled in Firebase. Please enable the Google provider in Firebase Console -> Authentication -> Sign-in method.');
+    } else if (error?.code === 'auth/invalid-api-key' || error?.code === 'auth/api-key-not-valid') {
+      alert('Invalid Firebase API key in environment variables. Please check VITE_FIREBASE_API_KEY.');
+    } else if (error?.message) {
+      alert(`Sign in error: ${error.message}`);
     }
     throw error;
   }
