@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Terminal,
   CheckCircle2,
@@ -51,6 +51,13 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
   const [isAddingCase, setIsAddingCase] = useState(false);
   const [newCaseInput, setNewCaseInput] = useState('');
   const [newCaseExpected, setNewCaseExpected] = useState('');
+
+  // Auto-switch to output tab if a compilation error or runtime crash occurred
+  useEffect(() => {
+    if (executionResult?.status === 'compilation_error' || executionResult?.status === 'runtime_error') {
+      setActiveTab('output');
+    }
+  }, [executionResult]);
 
   const handleSaveNewCase = () => {
     if (!newCaseInput.trim()) return;

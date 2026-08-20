@@ -11,6 +11,39 @@ export default async function handler(req: IncomingMessage & { body?: any; query
     res.end(JSON.stringify(data));
   };
 
+  // Route -1: Execute Code (Piston Compiler Proxy)
+  if (url.startsWith('/api/execute-code') && req.method === 'POST') {
+    let body = req.body;
+    if (!body || typeof body === 'string') {
+      let bodyStr = '';
+      await new Promise<void>((resolve) => {
+        req.on('data', (chunk) => { bodyStr += chunk; });
+        req.on('end', () => {
+          try {
+            body = JSON.parse(bodyStr || '{}');
+          } catch {
+            body = {};
+          }
+          resolve();
+        });
+      });
+    }
+
+    try {
+      const { executeCodeHandler } = await import('./execute-code.ts');
+      const result = await executeCodeHandler(body);
+      return sendJson(200, result);
+    } catch (err: any) {
+      return sendJson(200, {
+        status: 'compilation_error',
+        stdout: '',
+        stderr: err?.message || 'Execution failed',
+        exitCode: 1,
+        timeMs: 0,
+      });
+    }
+  }
+
   // Route 0: Gemini AI Assistant
   if (url.startsWith('/api/gemini-assistant') && req.method === 'POST') {
     let body = req.body;

@@ -106,21 +106,27 @@ export interface UserProblemState {
   lastAttemptedAt?: number;
 }
 
+export interface TestCaseResult {
+  testCaseId: string;
+  input: string;
+  expected?: string;
+  expectedOutput?: string;
+  actual?: string;
+  actualOutput?: string;
+  passed: boolean;
+  error?: string;
+  executionTimeMs: number;
+}
+
 export interface ExecutionResult {
   stdout: string;
   stderr: string;
-  status: 'idle' | 'running' | 'success' | 'failed' | 'compilation_error' | 'runtime_error';
+  output?: string;
+  error?: string;
+  status: 'idle' | 'running' | 'success' | 'failed' | 'compilation_error' | 'runtime_error' | 'error';
   executionTimeMs: number;
-  memoryKb: number;
-  testCaseResults?: {
-    testCaseId: string;
-    input: string;
-    expected: string;
-    actual: string;
-    passed: boolean;
-    error?: string;
-    executionTimeMs: number;
-  }[];
+  memoryKb?: number;
+  testCaseResults?: TestCaseResult[];
   allPassed?: boolean;
 }
 

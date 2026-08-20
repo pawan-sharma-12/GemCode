@@ -1,9 +1,5 @@
-import { ExecutionResult, TestCase, TestCaseResult } from '../types/dsa';
-
-/**
- * Piston API endpoint (Free, open-source sandboxed code execution engine)
- */
-const PISTON_API = 'https://emkc.org/api/v2/piston/execute';
+import { DSAProblem, ExecutionResult, TestCase, TestCaseResult } from '../types/dsa';
+import { buildExecutableCppCode } from './harnessBuilder';
 
 export function normalizeLanguage(lang: string): string {
   const map: Record<string, string> = {
@@ -23,39 +19,37 @@ export function normalizeLanguage(lang: string): string {
 }
 
 /**
- * Normalize and compare outputs (ignoring trailing whitespace and minor formatting differences)
+ * Compare actual stdout with expected output
  */
 export function compareOutputs(actual: string, expected: string): boolean {
-  if (!expected) return true; // If no expected output provided, treat as non-failing run
+  if (!expected) return true;
   
-  const cleanActual = actual.trim().replace(/\r\n/g, '\n').replace(/\s+/g, ' ');
-  const cleanExpected = expected.trim().replace(/\r\n/g, '\n').replace(/\s+/g, ' ');
+  const cleanActual = actual.trim().replace(/\r\n/g, '\n').replace(/\s+/g, '');
+  const cleanExpected = expected.trim().replace(/\r\n/g, '\n').replace(/\s+/g, '');
   
   return cleanActual === cleanExpected;
 }
 
 /**
- * Executes code on Piston for a single test case input via stdin
+ * Execute code via backend proxy endpoint (/api/execute-code)
  */
 export async function executeSingle(
   code: string,
   language: string,
   stdin: string
-): Promise<{ stdout: string; stderr: string; timeMs: number; exitCode: number }> {
-  const pistonLang = normalizeLanguage(language);
+): Promise<{ stdout: string; stderr: string; timeMs: number; exitCode: number; status?: string }> {
   const startTime = performance.now();
 
   try {
-    const res = await fetch(PISTON_API, {
+    const res = await fetch('/api/execute-code', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        language: pistonLang,
-        version: '*',
-        files: [{ content: code }],
-        stdin: stdin,
+        code,
+        language: normalizeLanguage(language),
+        stdin,
       }),
     });
 
@@ -63,96 +57,138 @@ export async function executeSingle(
     const duration = Math.round(endTime - startTime);
 
     if (!res.ok) {
-      throw new Error(`Execution server responded with ${res.status}`);
+      throw new Error(`Server execution endpoint returned status ${res.status}`);
     }
 
     const data = await res.json();
-    if (data.run) {
-      return {
-        stdout: (data.run.stdout || '').trim(),
-        stderr: (data.run.stderr || data.compile?.stderr || '').trim(),
-        timeMs: duration,
-        exitCode: data.run.code !== undefined ? data.run.code : 0,
-      };
-    } else {
-      return {
-        stdout: '',
-        stderr: data.message || 'Execution error',
-        timeMs: duration,
-        exitCode: 1,
-      };
-    }
+    return {
+      stdout: (data.stdout || '').trim(),
+      stderr: (data.stderr || '').trim(),
+      timeMs: data.timeMs !== undefined ? data.timeMs : duration,
+      exitCode: data.exitCode !== undefined ? data.exitCode : (data.status === 'success' ? 0 : 1),
+      status: data.status,
+    };
   } catch (err: any) {
     const endTime = performance.now();
     return {
       stdout: '',
-      stderr: err.message || 'Network error executing code',
+      stderr: err.message || 'Execution request failed',
       timeMs: Math.round(endTime - startTime),
       exitCode: 1,
+      status: 'compilation_error',
     };
   }
 }
 
 /**
- * Runs user's code against the provided sample test cases
+ * Runs user code against all test cases with full compilation
  */
 export async function runAllTestCases(
   code: string,
-  language: string,
+  language: string = 'cpp',
   testCases: TestCase[] = [],
-  mode: 'run' | 'submit' = 'run'
+  problem?: DSAProblem | null,
+  customInput?: string
 ): Promise<ExecutionResult> {
-  const activeCases = mode === 'run' 
-    ? (testCases.filter(tc => !tc.isHidden).length > 0 ? testCases.filter(tc => !tc.isHidden) : testCases)
-    : testCases;
+  const startTime = performance.now();
 
-  // If no test cases available, execute once directly
-  if (!activeCases || activeCases.length === 0) {
-    const res = await executeSingle(code, language, '');
+  if (!code.trim()) {
     return {
-      output: res.stdout || res.stderr || '(No output produced)',
-      error: res.stderr ? res.stderr : undefined,
-      status: res.exitCode === 0 ? 'success' : 'error',
-      executionTimeMs: res.timeMs,
+      stdout: '',
+      stderr: 'Compilation Error: Empty code submitted. Please write your solution.',
+      status: 'compilation_error',
+      executionTimeMs: 0,
+      memoryKb: 0,
+      allPassed: false,
     };
   }
 
+  // Active test cases to run
+  const activeCases: TestCase[] = testCases.length > 0 
+    ? testCases 
+    : [
+        {
+          id: 'case-custom',
+          input: customInput || '',
+          expectedOutput: '',
+          isHidden: false,
+        }
+      ];
+
   const results: TestCaseResult[] = [];
   let totalTime = 0;
-  let hasError = false;
-  let overallStderr = '';
+  let compilationError = '';
+  let isCompileFailed = false;
 
   for (const tc of activeCases) {
-    const res = await executeSingle(code, language, tc.input);
+    // Wrap code with executable driver if needed
+    const executableCode = buildExecutableCppCode(code, problem || null, tc.input);
+
+    const res = await executeSingle(executableCode, language, tc.input);
     totalTime += res.timeMs;
 
-    const isPassed = res.exitCode === 0 && (!tc.expectedOutput || compareOutputs(res.stdout, tc.expectedOutput));
-
-    if (res.exitCode !== 0 || res.stderr) {
-      hasError = true;
-      if (!overallStderr) overallStderr = res.stderr;
+    if (res.status === 'compilation_error' || (res.exitCode !== 0 && res.stderr && !res.stdout)) {
+      isCompileFailed = true;
+      compilationError = res.stderr;
+      results.push({
+        testCaseId: tc.id,
+        input: tc.input,
+        expected: tc.expectedOutput,
+        expectedOutput: tc.expectedOutput,
+        actual: 'Compile Error',
+        actualOutput: 'Compile Error',
+        passed: false,
+        error: res.stderr,
+        executionTimeMs: res.timeMs,
+      });
+      break; // Stop running remaining test cases on compile error
     }
+
+    const passed = res.exitCode === 0 && compareOutputs(res.stdout, tc.expectedOutput);
 
     results.push({
       testCaseId: tc.id,
       input: tc.input,
+      expected: tc.expectedOutput,
       expectedOutput: tc.expectedOutput,
-      actualOutput: res.stdout || (res.stderr ? `Error: ${res.stderr}` : ''),
-      passed: isPassed,
-      executionTimeMs: res.timeMs,
+      actual: res.stdout,
+      actualOutput: res.stdout,
+      passed: passed,
       error: res.stderr || undefined,
+      executionTimeMs: res.timeMs,
     });
   }
 
-  const allPassed = results.every(r => r.passed);
+  const totalExecutionTime = Math.round(performance.now() - startTime);
+
+  if (isCompileFailed) {
+    return {
+      stdout: '',
+      stderr: compilationError || 'Compilation error: Failed to compile program.',
+      output: compilationError,
+      error: compilationError,
+      status: 'compilation_error',
+      executionTimeMs: totalExecutionTime,
+      memoryKb: 0,
+      testCaseResults: results,
+      allPassed: false,
+    };
+  }
+
+  const allPassed = results.length > 0 && results.every(r => r.passed);
+  const stdoutSummary = results
+    .map((r, idx) => `[Case ${idx + 1}] ${r.passed ? 'PASSED ✓' : 'FAILED ✗'} | Expected: ${r.expected || 'N/A'} | Output: ${r.actual || '(no output)'}`)
+    .join('\n');
 
   return {
-    output: allPassed 
-      ? `All ${results.length} test case(s) passed!` 
-      : `${results.filter(r => r.passed).length} of ${results.length} test cases passed.`,
-    error: hasError ? overallStderr : undefined,
-    status: allPassed ? 'success' : 'error',
-    executionTimeMs: totalTime,
+    stdout: stdoutSummary,
+    stderr: !allPassed ? 'Test cases failed. Output did not match expected result.' : '',
+    output: allPassed ? `All ${results.length} test case(s) passed!` : `${results.filter(r => r.passed).length} of ${results.length} test cases passed.`,
+    error: !allPassed ? 'Some test cases failed.' : undefined,
+    status: allPassed ? 'success' : 'failed',
+    executionTimeMs: totalExecutionTime,
+    memoryKb: 14200,
     testCaseResults: results,
+    allPassed,
   };
 }

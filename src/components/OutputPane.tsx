@@ -27,6 +27,12 @@ export const OutputPane: React.FC<OutputPaneProps> = ({
   const [selectedCaseIndex, setSelectedCaseIndex] = useState(0);
   const [customInput, setCustomInput] = useState('');
 
+  React.useEffect(() => {
+    if (result?.status === 'compilation_error' || result?.status === 'runtime_error') {
+      setActiveTab('result');
+    }
+  }, [result]);
+
   // Fallback if no test cases passed
   const displayCases: TestCase[] = testCases.length > 0 
     ? testCases 

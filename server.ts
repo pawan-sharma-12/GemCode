@@ -14,6 +14,24 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
+// Route -1: Universal Code Execution
+app.post('/api/execute-code', async (req, res) => {
+  try {
+    const { executeCodeHandler } = await import('./api/execute-code.ts');
+    const result = await executeCodeHandler(req.body);
+    res.status(200).json(result);
+  } catch (err: any) {
+    console.error('Code execution endpoint error:', err);
+    res.status(500).json({
+      status: 'compilation_error',
+      stdout: '',
+      stderr: err.message || 'Execution service error',
+      exitCode: 1,
+      timeMs: 0,
+    });
+  }
+});
+
 // Route 0: Gemini AI Assistant
 app.post('/api/gemini-assistant', async (req, res) => {
   try {

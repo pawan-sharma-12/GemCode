@@ -113,45 +113,92 @@ export default function App() {
     sheetStatus: 'Unsolved',
   };
 
-  const [activeProblem, setActiveProblem] = useState<DSAProblem>(() => ({
-    id: initialProblem.id,
-    title: initialProblem.title,
-    slug: initialProblem.slug,
-    difficulty: initialProblem.difficulty || 'Easy',
-    topic: initialProblem.topic,
-    category: initialProblem.category,
-    leetcodeUrl: initialProblem.leetcodeUrl,
-    notes: initialProblem.notes,
-    description: `Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.`,
-    examples: [
-      {
-        input: 'nums = [2,7,11,15], target = 9',
-        output: '[0,1]',
-        explanation: 'Because nums[0] + nums[1] == 9, we return [0, 1].',
-      },
-    ],
-    constraints: ['2 <= nums.length <= 10^4', '-10^9 <= nums[i] <= 10^9', 'Only one valid answer exists.'],
-    starterCode: generateCppStarter(
-      initialProblem.title,
-      `class Solution {\npublic:\n    vector<int> twoSum(vector<int>& nums, int target) {\n        \n    }\n};`
-    ),
-    hints: ['A really brute force way would be to search for all possible pairs of numbers but that would be slow.'],
-    timeComplexity: 'O(N)',
-    spaceComplexity: 'O(N)',
-    testCases: [
-      {
-        id: 'tc-1',
-        input: '4 9\n2 7 11 15',
-        expectedOutput: '[0, 1]',
-      },
-    ],
-  }));
+  const [activeProblem, setActiveProblem] = useState<DSAProblem>(() => {
+    const builtInTwoSum = DSA_PROBLEMS.find((p) => p.id === 'two-sum' || p.title.toLowerCase().includes('two sum'));
+    if (builtInTwoSum) {
+      return {
+        ...builtInTwoSum,
+        id: initialProblem.id,
+        difficulty: builtInTwoSum.difficulty || 'Easy',
+        topic: builtInTwoSum.topic || 'Arrays & Hashing',
+        category: builtInTwoSum.category || 'Array',
+        leetcodeUrl: initialProblem.leetcodeUrl,
+        notes: initialProblem.notes,
+        starterCode: builtInTwoSum.starterCode || generateCppStarter(builtInTwoSum.title),
+      };
+    }
+
+    return {
+      id: initialProblem.id,
+      title: initialProblem.title,
+      slug: initialProblem.slug,
+      difficulty: initialProblem.difficulty || 'Easy',
+      topic: initialProblem.topic,
+      category: initialProblem.category,
+      leetcodeUrl: initialProblem.leetcodeUrl,
+      notes: initialProblem.notes,
+      description: `Given an array of integers \`nums\` and an integer \`target\`, return *indices of the two numbers such that they add up to \`target\`*.
+
+You may assume that each input would have **exactly one solution**, and you may not use the *same* element twice.
+
+You can return the answer in any order.`,
+      examples: [
+        {
+          input: 'nums = [2,7,11,15], target = 9',
+          output: '[0,1]',
+          explanation: 'Because nums[0] + nums[1] == 9, we return [0, 1].',
+        },
+        {
+          input: 'nums = [3,2,4], target = 6',
+          output: '[1,2]',
+        },
+        {
+          input: 'nums = [3,3], target = 6',
+          output: '[0,1]',
+        },
+      ],
+      constraints: [
+        '2 <= nums.length <= 10^4',
+        '-10^9 <= nums[i] <= 10^9',
+        '-10^9 <= target <= 10^9',
+        'Only one valid answer exists.',
+      ],
+      starterCode: generateCppStarter(
+        initialProblem.title,
+        `class Solution {\npublic:\n    vector<int> twoSum(vector<int>& nums, int target) {\n        \n    }\n};`
+      ),
+      hints: [
+        'A really brute force way would be to search for all possible pairs of numbers but that would be slow.',
+        'Can you use a hash map to store each number and its index as you iterate in O(N) time?',
+      ],
+      timeComplexity: 'O(N)',
+      spaceComplexity: 'O(N)',
+      testCases: [
+        {
+          id: 'tc-1',
+          input: 'nums = [2,7,11,15], target = 9',
+          expectedOutput: '[0,1]',
+          explanation: 'nums[0] + nums[1] == 9, we return [0, 1]',
+        },
+        {
+          id: 'tc-2',
+          input: 'nums = [3,2,4], target = 6',
+          expectedOutput: '[1,2]',
+        },
+        {
+          id: 'tc-3',
+          input: 'nums = [3,3], target = 6',
+          expectedOutput: '[0,1]',
+        },
+      ],
+    };
+  });
 
   const [code, setCode] = useState<string>(() => {
     const initialSaved = localStorage.getItem(`dsa_code_${initialProblem.id}`);
     if (initialSaved) return initialSaved;
     return (
-      initialProblem.starterCode ||
+      activeProblem.starterCode ||
       generateCppStarter(
         initialProblem.title,
         `class Solution {\npublic:\n    vector<int> twoSum(vector<int>& nums, int target) {\n        \n    }\n};`
@@ -165,8 +212,30 @@ export default function App() {
   const activeProblemRef = useRef<DSAProblem>(activeProblem);
   activeProblemRef.current = activeProblem;
 
-  const [testCases, setTestCases] = useState<TestCase[]>(activeProblem.testCases || []);
-  const [customInput, setCustomInput] = useState<string>('4 9\n2 7 11 15');
+  const [testCases, setTestCases] = useState<TestCase[]>(() => {
+    if (activeProblem.testCases && activeProblem.testCases.length > 0) {
+      return activeProblem.testCases;
+    }
+    return [
+      {
+        id: 'tc-1',
+        input: 'nums = [2,7,11,15], target = 9',
+        expectedOutput: '[0,1]',
+        explanation: 'nums[0] + nums[1] == 9',
+      },
+      {
+        id: 'tc-2',
+        input: 'nums = [3,2,4], target = 6',
+        expectedOutput: '[1,2]',
+      },
+      {
+        id: 'tc-3',
+        input: 'nums = [3,3], target = 6',
+        expectedOutput: '[0,1]',
+      },
+    ];
+  });
+  const [customInput, setCustomInput] = useState<string>('nums = [2,7,11,15], target = 9');
 
   // Panes & Tab control
   const [isProblemPaneCollapsed, setIsProblemPaneCollapsed] = useState(false);
@@ -422,6 +491,27 @@ export default function App() {
       const targetInitialCode =
         savedCode !== null && savedCode !== undefined ? savedCode : currentStarter;
 
+      // Derive clean test cases from examples if none specified
+      const initialTestCases: TestCase[] =
+        (sheetProb as any).testCases?.length
+          ? (sheetProb as any).testCases
+          : builtInMatch?.testCases?.length
+          ? builtInMatch.testCases
+          : examples.length
+          ? examples.map((ex: any, idx: number) => ({
+              id: `tc-${idx + 1}`,
+              input: ex.input,
+              expectedOutput: ex.output,
+              explanation: ex.explanation,
+            }))
+          : [
+              {
+                id: `tc-${Date.now()}`,
+                input: 'Sample input',
+                expectedOutput: 'Sample output',
+              },
+            ];
+
       const newActive: DSAProblem = {
         id: sheetProb.id,
         title: builtInMatch?.title || sheetProb.title,
@@ -439,13 +529,7 @@ export default function App() {
         hints: hints,
         timeComplexity: (sheetProb as any).timeComplexity || builtInMatch?.timeComplexity || 'O(N)',
         spaceComplexity: (sheetProb as any).spaceComplexity || builtInMatch?.spaceComplexity || 'O(1)',
-        testCases: (sheetProb as any).testCases || builtInMatch?.testCases || [
-          {
-            id: `tc-${Date.now()}`,
-            input: 'Sample input',
-            expectedOutput: 'Sample output',
-          },
-        ],
+        testCases: initialTestCases,
         questionFrontendId: qId,
       };
 
@@ -453,7 +537,7 @@ export default function App() {
       activeProblemRef.current = newActive;
       setCode(targetInitialCode);
       codeRef.current = targetInitialCode;
-      setTestCases(newActive.testCases);
+      setTestCases(initialTestCases);
       setExecutionResult(null);
 
       // Asynchronously fetch full live details from LeetCode
@@ -464,6 +548,16 @@ export default function App() {
             const parsedExamples = extractExamplesFromHtml(liveData.contentHtml);
             const parsedConstraints = extractConstraintsFromHtml(liveData.contentHtml);
             const liveStarter = generateCppStarter(liveData.title, liveData.cppSnippet);
+
+            if (parsedExamples.length > 0) {
+              const liveTestCases = parsedExamples.map((ex, idx) => ({
+                id: `tc-${idx + 1}`,
+                input: ex.input,
+                expectedOutput: ex.output,
+                explanation: ex.explanation,
+              }));
+              setTestCases(liveTestCases);
+            }
 
             setActiveProblem((prev) => {
               if (prev.id !== sheetProb.id) return prev;
@@ -478,6 +572,14 @@ export default function App() {
                 starterCode: liveStarter,
                 tags: liveData.topicTags,
                 questionFrontendId: liveData.questionFrontendId,
+                testCases: parsedExamples.length
+                  ? parsedExamples.map((ex, idx) => ({
+                      id: `tc-${idx + 1}`,
+                      input: ex.input,
+                      expectedOutput: ex.output,
+                      explanation: ex.explanation,
+                    }))
+                  : prev.testCases,
               };
               activeProblemRef.current = updated;
               return updated;
@@ -802,6 +904,11 @@ export default function App() {
           onOpenGemini={handleOpenGeminiTab}
           themeMode={themeMode}
           onToggleThemeMode={handleToggleThemeMode}
+          onRunCode={handleRunCode}
+          onSubmitCode={handleRunCode}
+          isRunning={isRunning}
+          isSolved={userProblemStates[activeProblem.id]?.isSolved}
+          onToggleSolved={() => handleToggleSolved(activeProblem.id)}
         />
       )}
 

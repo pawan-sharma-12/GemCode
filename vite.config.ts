@@ -15,6 +15,39 @@ function dsaApiPlugin(): Plugin {
       server.middlewares.use(async (req: IncomingMessage, res: ServerResponse, next: () => void) => {
         const rawUrl = req.url || '';
 
+        // Route -1: Execute Code (Piston Compiler Proxy)
+        if (rawUrl.startsWith('/api/execute-code') && req.method === 'POST') {
+          let bodyStr = '';
+          req.on('data', (chunk) => {
+            bodyStr += chunk;
+          });
+
+          req.on('end', async () => {
+            try {
+              const body = JSON.parse(bodyStr || '{}');
+              const { executeCodeHandler } = await import('./api/execute-code.ts');
+              const result = await executeCodeHandler(body);
+
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify(result));
+            } catch (execErr: any) {
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(
+                JSON.stringify({
+                  status: 'compilation_error',
+                  stdout: '',
+                  stderr: execErr?.message || 'Code execution server error',
+                  exitCode: 1,
+                  timeMs: 0,
+                })
+              );
+            }
+          });
+          return;
+        }
+
         // Route 0: Gemini AI Assistant
         if (rawUrl.startsWith('/api/gemini-assistant') && req.method === 'POST') {
           let bodyStr = '';
