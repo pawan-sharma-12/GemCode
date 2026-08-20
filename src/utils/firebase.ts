@@ -8,11 +8,13 @@ import {
   User,
 } from 'firebase/auth';
 import {
+  initializeFirestore,
   getFirestore,
   doc,
   getDoc,
   setDoc,
   serverTimestamp,
+  Firestore,
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { ProblemList, UserProblemState } from '../types/dsa';
@@ -32,7 +34,17 @@ const isDefaultDb = !configuredDbId || configuredDbId === '(default)';
 
 const app = !getApps().length ? initializeApp(dynamicConfig) : getApp();
 export const auth = getAuth(app);
-export const db = isDefaultDb ? getFirestore(app) : getFirestore(app, configuredDbId);
+
+// Use long-polling to prevent browser CORS/stream errors across all environments
+let firestoreInstance: Firestore;
+try {
+  firestoreInstance = initializeFirestore(app, {
+    experimentalLongPolling: true,
+  });
+} catch {
+  firestoreInstance = isDefaultDb ? getFirestore(app) : getFirestore(app, configuredDbId);
+}
+export const db = firestoreInstance;
 
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({

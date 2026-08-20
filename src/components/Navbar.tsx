@@ -604,45 +604,48 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Google Authentication */}
         {currentUser ? (
           <div
-            className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border ${
+            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border shadow-sm transition-all ${
               themeMode === 'light'
-                ? 'bg-slate-100 border-slate-300'
-                : 'bg-slate-900 border-slate-700'
+                ? 'bg-slate-100/90 border-slate-300 text-slate-800'
+                : 'bg-slate-900/90 border-slate-700/80 text-slate-200'
             }`}
           >
-            {currentUser.photoURL ? (
-              <img
-                src={currentUser.photoURL}
-                alt={currentUser.displayName || 'User'}
-                className="w-5 h-5 rounded-full ring-1 ring-emerald-500 shrink-0"
-              />
-            ) : (
-              <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
-                {currentUser.displayName?.charAt(0) || 'U'}
-              </div>
-            )}
-            <span
-              className={`text-xs font-medium hidden xl:inline max-w-[80px] truncate ${
-                themeMode === 'light' ? 'text-slate-800' : 'text-slate-200'
-              }`}
-            >
-              {currentUser.displayName || currentUser.email}
-            </span>
+            <div className="flex items-center gap-1.5 select-none" title={currentUser.email || currentUser.displayName || 'Logged in user'}>
+              {currentUser.photoURL ? (
+                <img
+                  src={currentUser.photoURL}
+                  alt={currentUser.displayName || 'User'}
+                  className="w-5 h-5 rounded-full ring-2 ring-emerald-500/80 shrink-0 object-cover"
+                />
+              ) : (
+                <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0 shadow-xs">
+                  {currentUser.displayName?.charAt(0) || currentUser.email?.charAt(0) || 'U'}
+                </div>
+              )}
+              <span
+                className={`text-xs font-semibold hidden xl:inline max-w-[90px] truncate ${
+                  themeMode === 'light' ? 'text-slate-800' : 'text-slate-200'
+                }`}
+              >
+                {currentUser.displayName || currentUser.email?.split('@')[0]}
+              </span>
+            </div>
             <button
               onClick={onLogoutGoogle}
-              className="text-slate-400 hover:text-rose-400 transition-colors p-0.5"
-              title="Sign out"
+              className="flex items-center justify-center p-1 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/15 active:scale-90 transition-all cursor-pointer"
+              title="Sign out of Google account"
+              aria-label="Sign out"
             >
-              <LogOut className="w-3 h-3" />
+              <LogOut className="w-3.5 h-3.5" />
             </button>
           </div>
         ) : (
           <button
             onClick={onLoginGoogle}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-900 rounded-lg text-xs font-bold transition-all shadow-sm border border-slate-200"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 active:scale-95 text-slate-900 rounded-xl text-xs font-bold transition-all shadow-sm border border-slate-200 cursor-pointer"
             title="Sign in with Google to sync progress to cloud"
           >
-            <svg className="w-3 h-3" viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
               <path
                 fill="#4285F4"
                 d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"

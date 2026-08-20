@@ -45,6 +45,7 @@ interface ProblemPaneProps {
   language?: string;
   executionResult?: ExecutionResult | null;
   onApplyCodeToEditor?: (code: string) => void;
+  onUpdateNotes?: (problemId: string, notes: string) => void;
   activeTabOverride?: 'description' | 'gemini' | 'list' | 'hints' | 'notes';
   themeMode?: 'dark' | 'light';
 }
@@ -69,14 +70,26 @@ export const ProblemPane: React.FC<ProblemPaneProps> = ({
   language = 'cpp',
   executionResult = null,
   onApplyCodeToEditor = () => {},
+  onUpdateNotes,
   activeTabOverride,
   themeMode = 'dark',
 }) => {
   const isLight = themeMode === 'light';
   const [activeTab, setActiveTab] = useState<'description' | 'gemini' | 'list' | 'hints' | 'notes'>('description');
   const [revealedHints, setRevealedHints] = useState<number[]>([]);
-  const [noteContent, setNoteContent] = useState<string>('');
+  const [noteContent, setNoteContent] = useState<string>(() => {
+    return userProblemState?.notes || localStorage.getItem(`dsa_note_${problem.id}`) || '';
+  });
   const [savedStatus, setSavedStatus] = useState<boolean>(false);
+
+  // Sync note content when problem or userProblemState changes (e.g. on login/logout)
+  useEffect(() => {
+    const currentNote =
+      userProblemState?.notes !== undefined
+        ? userProblemState.notes
+        : localStorage.getItem(`dsa_note_${problem.id}`) || '';
+    setNoteContent(currentNote);
+  }, [problem.id, userProblemState?.notes]);
 
   useEffect(() => {
     if (activeTabOverride) {
@@ -270,6 +283,9 @@ export const ProblemPane: React.FC<ProblemPaneProps> = ({
 
   const handleSaveNote = () => {
     localStorage.setItem(`dsa_note_${problem.id}`, noteContent);
+    if (onUpdateNotes) {
+      onUpdateNotes(problem.id, noteContent);
+    }
     setSavedStatus(true);
     setTimeout(() => setSavedStatus(false), 2000);
   };

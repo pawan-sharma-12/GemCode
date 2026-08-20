@@ -229,6 +229,8 @@ export default function App() {
     });
   };
 
+  const codeSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Listen to Firebase Auth state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -244,7 +246,29 @@ export default function App() {
                 localStorage.setItem('dsa_user_states', JSON.stringify(merged));
                 return merged;
               });
+
+              // Populate localStorage notes for each problem
+              Object.entries(cloudData.userProblemStates).forEach(([pid, st]) => {
+                if (st && st.notes !== undefined) {
+                  localStorage.setItem(`dsa_note_${pid}`, st.notes);
+                }
+              });
             }
+
+            if (cloudData.savedCodes) {
+              Object.entries(cloudData.savedCodes).forEach(([pid, savedCode]) => {
+                if (savedCode) {
+                  localStorage.setItem(`dsa_code_${pid}`, savedCode);
+                }
+              });
+              // If active problem has saved code in cloud, update editor
+              const activePid = activeProblemRef.current?.id;
+              if (activePid && cloudData.savedCodes[activePid]) {
+                setCode(cloudData.savedCodes[activePid]);
+                codeRef.current = cloudData.savedCodes[activePid];
+              }
+            }
+
             if (cloudData.customLists && cloudData.customLists.length > 0) {
               setLists((prev) => {
                 const builtIns = prev.filter((l) => l.isBuiltIn);
@@ -256,6 +280,20 @@ export default function App() {
           }
         } catch (e) {
           console.warn('Could not sync user data from cloud:', e);
+        }
+      } else {
+        // User logged out - reset state to default
+        setUserProblemStates({});
+        setLists(CURATED_LISTS);
+        localStorage.removeItem('dsa_user_states');
+        localStorage.removeItem('dsa_custom_lists');
+        if (activeProblemRef.current) {
+          const defaultStarter =
+            activeProblemRef.current.starterCode || generateCppStarter(activeProblemRef.current.title);
+          setCode(defaultStarter);
+          codeRef.current = defaultStarter;
+          localStorage.removeItem(`dsa_code_${activeProblemRef.current.id}`);
+          localStorage.removeItem(`dsa_note_${activeProblemRef.current.id}`);
         }
       }
     });
@@ -272,6 +310,23 @@ export default function App() {
         userProblemStates: newStates,
       });
     }
+  };
+
+  const handleUpdateNotes = (problemId: string, notesText: string) => {
+    const currentState = userProblemStates[problemId] || {
+      isSolved: false,
+      isStarred: false,
+      isRevision: false,
+    };
+    const updated = {
+      ...userProblemStates,
+      [problemId]: {
+        ...currentState,
+        notes: notesText,
+      },
+    };
+    saveUserStates(updated);
+    localStorage.setItem(`dsa_note_${problemId}`, notesText);
   };
 
   const saveCustomLists = (updatedLists: ProblemList[]) => {
@@ -298,6 +353,18 @@ export default function App() {
   const handleGoogleLogout = async () => {
     try {
       await signOutUser();
+      setUserProblemStates({});
+      setLists(CURATED_LISTS);
+      localStorage.removeItem('dsa_user_states');
+      localStorage.removeItem('dsa_custom_lists');
+      if (activeProblemRef.current) {
+        const defaultStarter =
+          activeProblemRef.current.starterCode || generateCppStarter(activeProblemRef.current.title);
+        setCode(defaultStarter);
+        codeRef.current = defaultStarter;
+        localStorage.removeItem(`dsa_code_${activeProblemRef.current.id}`);
+        localStorage.removeItem(`dsa_note_${activeProblemRef.current.id}`);
+      }
     } catch (err: any) {
       console.error('Google Sign Out failed:', err);
     }
@@ -572,8 +639,17 @@ export default function App() {
   const handleCodeChange = (newCode: string) => {
     setCode(newCode);
     codeRef.current = newCode;
-    if (activeProblemRef.current?.id) {
-      localStorage.setItem(`dsa_code_${activeProblemRef.current.id}`, newCode);
+    const currentPid = activeProblemRef.current?.id;
+    if (currentPid) {
+      localStorage.setItem(`dsa_code_${currentPid}`, newCode);
+      if (currentUser) {
+        if (codeSyncTimeoutRef.current) clearTimeout(codeSyncTimeoutRef.current);
+        codeSyncTimeoutRef.current = setTimeout(() => {
+          syncUserDataToFirestore(currentUser.uid, {
+            savedCodes: { [currentPid]: newCode },
+          });
+        }, 1500);
+      }
     }
   };
 
@@ -787,6 +863,7 @@ export default function App() {
               language={settings.language || 'cpp'}
               executionResult={executionResult}
               onApplyCodeToEditor={handleApplyCodeFromGemini}
+              onUpdateNotes={handleUpdateNotes}
               activeTabOverride={problemPaneTabOverride}
               themeMode={themeMode}
             />
