@@ -30,13 +30,19 @@ googleProvider.setCustomParameters({
   prompt: 'select_account',
 });
 
-// Google Sign In
+// Google Sign In with Popup & fallback
 export async function signInWithGoogle(): Promise<User | null> {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error: any) {
     console.error('Google sign in error:', error);
+    // Helpful log for auth/unauthorized-domain
+    if (error?.code === 'auth/unauthorized-domain') {
+      console.error(
+        'Domain authorization required: Please add your production domain to Firebase Console -> Authentication -> Authorized domains.'
+      );
+    }
     throw error;
   }
 }

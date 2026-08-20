@@ -1,4 +1,5 @@
 import { DSAProblem, Difficulty, ProblemExample, TestCase } from '../types/dsa';
+import { DSA_PROBLEMS } from '../data/dsaProblems';
 
 // In-memory cache for fast repeat access
 const problemCache = new Map<string, any>();
@@ -184,10 +185,14 @@ export async function fetchLeetCodeProblem(slugOrUrl: string): Promise<LeetCodeF
     if (match) slug = match[1];
   }
 
+  slug = slug.toLowerCase().replace(/[^a-z0-9-]+/g, '-');
+
+  // Check in-memory cache
   if (problemCache.has(slug)) {
     return problemCache.get(slug);
   }
 
+  // Check localStorage cache
   const stored = localStorage.getItem(`lc_cache_${slug}`);
   if (stored) {
     try {
@@ -199,21 +204,77 @@ export async function fetchLeetCodeProblem(slugOrUrl: string): Promise<LeetCodeF
     }
   }
 
+  // Check local DSA_PROBLEMS built-ins
+  const localMatch = DSA_PROBLEMS.find(
+    (p) =>
+      p.id === slug ||
+      p.slug === slug ||
+      p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') === slug
+  );
+
+  if (localMatch && localMatch.description) {
+    const resObj: LeetCodeFetchResponse = {
+      success: true,
+      questionId: localMatch.id,
+      questionFrontendId: localMatch.id,
+      title: localMatch.title,
+      slug: localMatch.slug || slug,
+      difficulty: localMatch.difficulty,
+      contentHtml: `<p>${localMatch.description.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`,
+      topicTags: [localMatch.topic],
+      hints: localMatch.hints || [],
+      sampleTestCase: localMatch.testCases?.[0]?.input || '',
+      cppSnippet: localMatch.starterCode || generateCppStarter(localMatch.title),
+    };
+    problemCache.set(slug, resObj);
+    return resObj;
+  }
+
+  // Strategy 1: Call our /api/problem-details serverless endpoint
   try {
     const res = await fetch(`/api/problem-details?slug=${encodeURIComponent(slug)}`);
-    if (!res.ok) {
-      console.warn(`Problem fetch returned status ${res.status}`);
-      return null;
+    if (res.ok) {
+      const data: LeetCodeFetchResponse = await res.json();
+      if (data && data.success) {
+        problemCache.set(slug, data);
+        localStorage.setItem(`lc_cache_${slug}`, JSON.stringify(data));
+        return data;
+      }
     }
-    const data: LeetCodeFetchResponse = await res.json();
-    if (data && data.success) {
-      problemCache.set(slug, data);
-      localStorage.setItem(`lc_cache_${slug}`, JSON.stringify(data));
-      return data;
-    }
-    return null;
   } catch (err) {
-    console.error('Error fetching problem details:', err);
-    return null;
+    console.warn('Local /api/problem-details fetch error:', err);
   }
+
+  // Strategy 2: Direct public mirror API
+  try {
+    const mirrorRes = await fetch(`https://alfa-leetcode-api.onrender.com/select?titleSlug=${encodeURIComponent(slug)}`);
+    if (mirrorRes.ok) {
+      const mData: any = await mirrorRes.json();
+      if (mData && mData.questionTitle) {
+        const cppSnippet = mData.codeSnippets?.find((s: any) => s.langSlug === 'cpp')?.code || '';
+        const resObj: LeetCodeFetchResponse = {
+          success: true,
+          questionId: mData.questionId || '',
+          questionFrontendId: mData.questionFrontendId || '',
+          title: mData.questionTitle,
+          slug: mData.titleSlug || slug,
+          difficulty: mData.difficulty || 'Medium',
+          contentHtml: mData.question || '',
+          topicTags: mData.topicTags?.map((t: any) => t.name) || [],
+          hints: mData.hints || [],
+          sampleTestCase: mData.sampleTestCase || '',
+          cppSnippet: cppSnippet,
+          codeSnippets: mData.codeSnippets || [],
+        };
+        problemCache.set(slug, resObj);
+        localStorage.setItem(`lc_cache_${slug}`, JSON.stringify(resObj));
+        return resObj;
+      }
+    }
+  } catch (mirrorErr) {
+    console.warn('Direct mirror API error:', mirrorErr);
+  }
+
+  return null;
 }
+

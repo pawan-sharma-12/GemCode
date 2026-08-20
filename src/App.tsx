@@ -3,6 +3,7 @@ import confetti from 'canvas-confetti';
 import { User } from 'firebase/auth';
 import { MASTER_SHEET_PROBLEMS } from './data/masterSheetData';
 import { BUILT_IN_LISTS } from './data/curatedLists';
+import { DSA_PROBLEMS } from './data/dsaProblems';
 import {
   DSAProblem,
   EditorSettings,
@@ -310,30 +311,57 @@ export default function App() {
         localStorage.setItem(`dsa_code_${activeProblemRef.current.id}`, codeRef.current);
       }
 
+      const slug =
+        sheetProb.slug ||
+        sheetProb.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+      const builtInMatch = DSA_PROBLEMS.find(
+        (p) =>
+          p.id === slug ||
+          p.slug === slug ||
+          p.id === sheetProb.id ||
+          p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') === slug
+      );
+
       // 2. Check saved code for the newly selected problem
       const savedCode = localStorage.getItem(`dsa_code_${sheetProb.id}`);
 
-      // Basic placeholder setup
+      // Setup initial problem fields with built-in data fallback
       let currentStarter =
-        (sheetProb as any).starterCode || generateCppStarter(sheetProb.title);
-      let examples = (sheetProb as any).examples || [];
-      let constraints = (sheetProb as any).constraints || [];
-      let hints = (sheetProb as any).hints || [];
-      let descriptionHtml = (sheetProb as any).descriptionHtml;
+        (sheetProb as any).starterCode ||
+        builtInMatch?.starterCode ||
+        generateCppStarter(sheetProb.title);
+      let examples = (sheetProb as any).examples?.length
+        ? (sheetProb as any).examples
+        : (builtInMatch?.examples || []);
+      let constraints = (sheetProb as any).constraints?.length
+        ? (sheetProb as any).constraints
+        : (builtInMatch?.constraints || []);
+      let hints = (sheetProb as any).hints?.length
+        ? (sheetProb as any).hints
+        : (builtInMatch?.hints || []);
+      let descriptionHtml =
+        (sheetProb as any).descriptionHtml ||
+        (builtInMatch
+          ? `<p>${builtInMatch.description.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`
+          : undefined);
       let descriptionText =
-        (sheetProb as any).description || `Solve the problem: ${sheetProb.title}`;
-      let difficulty = sheetProb.difficulty || 'Medium';
-      let qId = sheetProb.questionFrontendId;
+        (sheetProb as any).description ||
+        builtInMatch?.description ||
+        `Solve the problem: ${sheetProb.title}`;
+      let difficulty = sheetProb.difficulty || builtInMatch?.difficulty || 'Medium';
+      let qId = sheetProb.questionFrontendId || builtInMatch?.questionFrontendId;
 
-      const targetInitialCode = savedCode !== null && savedCode !== undefined ? savedCode : currentStarter;
+      const targetInitialCode =
+        savedCode !== null && savedCode !== undefined ? savedCode : currentStarter;
 
       const newActive: DSAProblem = {
         id: sheetProb.id,
-        title: sheetProb.title,
-        slug: sheetProb.slug,
+        title: builtInMatch?.title || sheetProb.title,
+        slug: slug,
         difficulty: difficulty,
-        topic: sheetProb.topic,
-        category: sheetProb.category,
+        topic: sheetProb.topic || builtInMatch?.topic || 'General',
+        category: sheetProb.category || builtInMatch?.category || 'General',
         leetcodeUrl: sheetProb.leetcodeUrl,
         notes: sheetProb.notes,
         description: descriptionText,
@@ -342,9 +370,9 @@ export default function App() {
         constraints: constraints,
         starterCode: currentStarter,
         hints: hints,
-        timeComplexity: (sheetProb as any).timeComplexity || 'O(N)',
-        spaceComplexity: (sheetProb as any).spaceComplexity || 'O(1)',
-        testCases: (sheetProb as any).testCases || [
+        timeComplexity: (sheetProb as any).timeComplexity || builtInMatch?.timeComplexity || 'O(N)',
+        spaceComplexity: (sheetProb as any).spaceComplexity || builtInMatch?.spaceComplexity || 'O(1)',
+        testCases: (sheetProb as any).testCases || builtInMatch?.testCases || [
           {
             id: `tc-${Date.now()}`,
             input: 'Sample input',
@@ -362,10 +390,7 @@ export default function App() {
       setExecutionResult(null);
 
       // Asynchronously fetch full live details from LeetCode
-      if (sheetProb.slug || sheetProb.leetcodeUrl) {
-        const slug =
-          sheetProb.slug ||
-          sheetProb.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      if (slug || sheetProb.leetcodeUrl) {
         try {
           const liveData = await fetchLeetCodeProblem(slug);
           if (liveData && liveData.success) {
