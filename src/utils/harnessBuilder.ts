@@ -56,7 +56,6 @@ int main() {
         fullInput += line + " ";
     }
     
-    // Parse nums array e.g. [2,7,11,15] or 2, 7, 11, 15
     vector<int> nums;
     int target = 0;
     
@@ -65,35 +64,61 @@ int main() {
     
     if (openBracket != string::npos && closeBracket != string::npos && closeBracket > openBracket) {
         string arrContent = fullInput.substr(openBracket + 1, closeBracket - openBracket - 1);
+        for (char &c : arrContent) {
+            if (c == ',') c = ' ';
+        }
         stringstream ss(arrContent);
-        string token;
-        while (getline(ss, token, ',')) {
-            stringstream numSs(token);
-            int val;
-            if (numSs >> val) {
-                nums.push_back(val);
+        int val;
+        while (ss >> val) {
+            nums.push_back(val);
+        }
+        
+        size_t targetPos = fullInput.find("target");
+        if (targetPos != string::npos) {
+            size_t eqPos = fullInput.find('=', targetPos);
+            if (eqPos != string::npos) {
+                stringstream tss(fullInput.substr(eqPos + 1));
+                tss >> target;
+            }
+        } else {
+            stringstream tss(fullInput.substr(closeBracket + 1));
+            int tVal;
+            if (tss >> tVal) {
+                target = tVal;
             }
         }
-    }
-    
-    // Parse target
-    size_t targetPos = fullInput.find("target");
-    if (targetPos != string::npos) {
-        size_t eqPos = fullInput.find('=', targetPos);
-        if (eqPos != string::npos) {
-            stringstream ss(fullInput.substr(eqPos + 1));
-            ss >> target;
-        }
     } else {
-        // Fallback: search for numbers after closeBracket
-        if (closeBracket != string::npos) {
-            stringstream ss(fullInput.substr(closeBracket + 1));
-            ss >> target;
+        stringstream ss(fullInput);
+        string token;
+        vector<int> allNumbers;
+        while (ss >> token) {
+            stringstream tokenSs(token);
+            int n;
+            if (tokenSs >> n) {
+                allNumbers.push_back(n);
+            }
+        }
+        
+        if (!allNumbers.empty()) {
+            if (allNumbers.size() >= 3) {
+                target = allNumbers.back();
+                int startIdx = 0;
+                if (allNumbers[0] == (int)(allNumbers.size() - 2)) {
+                    startIdx = 1;
+                }
+                for (size_t i = startIdx; i < allNumbers.size() - 1; ++i) {
+                    nums.push_back(allNumbers[i]);
+                }
+            } else if (allNumbers.size() == 2) {
+                nums.push_back(allNumbers[0]);
+                target = allNumbers[1];
+            }
         }
     }
     
     Solution sol;
     vector<int> res = sol.twoSum(nums, target);
+    sort(res.begin(), res.end());
     
     cout << "[";
     for (size_t i = 0; i < res.size(); ++i) {
