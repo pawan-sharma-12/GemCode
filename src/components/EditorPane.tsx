@@ -40,6 +40,7 @@ interface EditorPaneProps {
   executionResult: ExecutionResult | null;
   onOpenGemini?: () => void;
   themeMode?: 'dark' | 'light';
+  isConsolePaneCollapsed?: boolean;
 }
 
 export const EditorPane: React.FC<EditorPaneProps> = ({
@@ -56,6 +57,7 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
   executionResult,
   onOpenGemini,
   themeMode = 'dark',
+  isConsolePaneCollapsed = false,
 }) => {
   const isLight = themeMode === 'light';
   const editorRef = useRef<any>(null);
@@ -65,6 +67,26 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
   const [showQuickOutputInFull, setShowQuickOutputInFull] = useState(false);
   const [showEnvironmentModal, setShowEnvironmentModal] = useState(false);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver(() => {
+      if (editorRef.current) {
+        editorRef.current.layout();
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (editorRef.current) {
+      setTimeout(() => {
+        editorRef.current.layout();
+      }, 50);
+    }
+  }, [isConsolePaneCollapsed]);
   // Handle Monaco mounting
   const handleEditorDidMount = (editor: any, monaco: Monaco) => {
     editorRef.current = editor;
@@ -138,7 +160,7 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
       } ${
         isFullScreen
           ? 'fixed inset-0 z-50 w-screen h-screen m-0 p-0 rounded-none shadow-none'
-          : 'flex-1 h-full min-w-0'
+          : 'flex-1 h-full min-w-0 min-h-0'
       }`}
     >
       {/* Editor Main Toolbar */}
@@ -480,7 +502,7 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
       </div>
 
       {/* Monaco Editor Container */}
-      <div className="flex-1 relative w-full h-full overflow-hidden">
+      <div ref={containerRef} className="flex-1 relative w-full h-full min-h-0 overflow-hidden">
         <Editor
           height="100%"
           width="100%"
@@ -518,7 +540,7 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
             matchBrackets: 'always',
             renderWhitespace: 'selection',
             scrollBeyondLastLine: false,
-            padding: { top: 12, bottom: 12 },
+            padding: { top: 12, bottom: 44 },
             suggest: {
               showWords: true,
               showClasses: true,
@@ -538,6 +560,54 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
             tabCompletion: 'on',
           }}
         />
+
+        {/* Submerged / Floating Editor STL Quick Insert Bar */}
+        <div className="absolute bottom-2 left-3 right-3 z-20 bg-[#0d131f]/95 backdrop-blur-md border border-slate-700/80 rounded-xl shadow-2xl px-3 py-1.5 flex items-center justify-between text-[11px] text-slate-300 select-none">
+          <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 scrollbar-none">
+            <span className="text-[10px] uppercase font-bold text-cyan-400 tracking-wider mr-1 shrink-0">
+              Quick Insert:
+            </span>
+            <button
+              onClick={() => handleQuickInsert('vector<int> ')}
+              className="px-2 py-0.5 rounded bg-slate-800/90 hover:bg-blue-600 hover:text-white text-slate-200 font-mono transition-colors shrink-0 border border-slate-700"
+            >
+              vector&lt;int&gt;
+            </button>
+            <button
+              onClick={() => handleQuickInsert('unordered_map<int, int> ')}
+              className="px-2 py-0.5 rounded bg-slate-800/90 hover:bg-blue-600 hover:text-white text-slate-200 font-mono transition-colors shrink-0 border border-slate-700"
+            >
+              unordered_map
+            </button>
+            <button
+              onClick={() => handleQuickInsert('priority_queue<int> ')}
+              className="px-2 py-0.5 rounded bg-slate-800/90 hover:bg-blue-600 hover:text-white text-slate-200 font-mono transition-colors shrink-0 border border-slate-700"
+            >
+              priority_queue
+            </button>
+            <button
+              onClick={() => handleQuickInsert('sort(nums.begin(), nums.end());')}
+              className="px-2 py-0.5 rounded bg-slate-800/90 hover:bg-blue-600 hover:text-white text-slate-200 font-mono transition-colors shrink-0 border border-slate-700"
+            >
+              std::sort
+            </button>
+            <button
+              onClick={() =>
+                handleQuickInsert('ios_base::sync_with_stdio(false); cin.tie(NULL);')
+              }
+              className="px-2 py-0.5 rounded bg-slate-800/90 hover:bg-blue-600 hover:text-white text-slate-200 font-mono transition-colors shrink-0 border border-slate-700"
+            >
+              fast_io
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0 ml-3 text-slate-400">
+            <span>
+              Lines: <strong className="text-white">{code.split('\n').length}</strong>
+            </span>
+            <span className="hidden sm:inline">UTF-8</span>
+          </div>
+        </div>
 
         {/* In-Fullscreen Quick Output Drawer */}
         {isFullScreen && showQuickOutputInFull && (
@@ -580,56 +650,6 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
             )}
           </div>
         )}
-      </div>
-
-      {/* Editor Bottom STL Quick Insert Bar */}
-      <div className="px-4 py-1.5 bg-[#090d16] border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400 select-none shrink-0 overflow-x-auto">
-        <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
-          <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mr-1 shrink-0">
-            Quick Insert:
-          </span>
-          <button
-            onClick={() => handleQuickInsert('vector<int> ')}
-            className="px-2 py-0.5 rounded bg-slate-800/80 hover:bg-blue-600 hover:text-white text-slate-300 font-mono transition-colors shrink-0"
-          >
-            vector&lt;int&gt;
-          </button>
-          <button
-            onClick={() => handleQuickInsert('unordered_map<int, int> ')}
-            className="px-2 py-0.5 rounded bg-slate-800/80 hover:bg-blue-600 hover:text-white text-slate-300 font-mono transition-colors shrink-0"
-          >
-            unordered_map
-          </button>
-          <button
-            onClick={() => handleQuickInsert('priority_queue<int> ')}
-            className="px-2 py-0.5 rounded bg-slate-800/80 hover:bg-blue-600 hover:text-white text-slate-300 font-mono transition-colors shrink-0"
-          >
-            priority_queue
-          </button>
-          <button
-            onClick={() => handleQuickInsert('sort(nums.begin(), nums.end());')}
-            className="px-2 py-0.5 rounded bg-slate-800/80 hover:bg-blue-600 hover:text-white text-slate-300 font-mono transition-colors shrink-0"
-          >
-            std::sort
-          </button>
-          <button
-            onClick={() =>
-              handleQuickInsert('ios_base::sync_with_stdio(false); cin.tie(NULL);')
-            }
-            className="px-2 py-0.5 rounded bg-slate-800/80 hover:bg-blue-600 hover:text-white text-slate-300 font-mono transition-colors shrink-0"
-          >
-            fast_io
-          </button>
-        </div>
-
-        <div className="flex items-center gap-3 shrink-0 ml-3">
-          <span>
-            Lines: <strong className={isLight ? 'text-slate-700' : 'text-slate-200'}>{code.split('\n').length}</strong>
-          </span>
-          <span>
-            UTF-8
-          </span>
-        </div>
       </div>
 
       {/* Pre-included Headers & Environment Modal (LeetCode / GFG Style) */}

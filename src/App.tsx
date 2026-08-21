@@ -44,7 +44,13 @@ import {
 
 export default function App() {
   // Navigation View State: 'home' (Default Homepage) or 'ide' (Studio IDE)
-  const [currentView, setCurrentView] = useState<'home' | 'ide'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'ide'>(() => {
+    return localStorage.getItem('gemcode_current_view') === 'ide' ? 'ide' : 'home';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('gemcode_current_view', currentView);
+  }, [currentView]);
 
   // Firebase User Authentication State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -83,7 +89,13 @@ export default function App() {
     return BUILT_IN_LISTS;
   });
 
-  const [activeListId, setActiveListId] = useState<string>('list-master-sheet');
+  const [activeListId, setActiveListId] = useState<string>(() => {
+    return localStorage.getItem('gemcode_active_list_id') || 'list-master-sheet';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('gemcode_active_list_id', activeListId);
+  }, [activeListId]);
 
   // User problem states: Solved, Starred, Revision, Notes
   const [userProblemStates, setUserProblemStates] = useState<Record<string, UserProblemState>>(() => {
@@ -102,47 +114,59 @@ export default function App() {
   });
 
   // Active problem in IDE
-  const initialProblem = MASTER_SHEET_PROBLEMS[0] || {
-    id: 'sheet-1',
-    title: 'Two Sum',
-    slug: 'two-sum',
-    topic: 'Arrays / Hashing',
-    category: 'Arrays',
-    leetcodeUrl: 'https://leetcode.com/problems/two-sum/',
-    notes: '',
-    sheetStatus: 'Unsolved',
-  };
+  const initialProblem = (() => {
+    const savedId = localStorage.getItem('gemcode_active_problem_id');
+    if (savedId) {
+      const found = allProblems.find((p) => p.id === savedId);
+      if (found) return found;
+    }
+    return MASTER_SHEET_PROBLEMS[0] || {
+      id: 'sheet-1',
+      title: 'Two Sum',
+      slug: 'two-sum',
+      topic: 'Arrays / Hashing',
+      category: 'Arrays',
+      leetcodeUrl: 'https://leetcode.com/problems/two-sum/',
+      notes: '',
+      sheetStatus: 'Unsolved',
+    };
+  })();
 
   const [activeProblem, setActiveProblem] = useState<DSAProblem>(() => {
-    const builtInTwoSum = DSA_PROBLEMS.find((p) => p.id === 'two-sum' || p.title.toLowerCase().includes('two sum'));
-    if (builtInTwoSum) {
+    const p = initialProblem as any;
+    const slug = p.slug || p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const builtInMatch = DSA_PROBLEMS.find(
+      (item) => item.id === slug || item.slug === slug || item.id === p.id
+    );
+    if (builtInMatch) {
       return {
-        ...builtInTwoSum,
-        id: initialProblem.id,
-        difficulty: builtInTwoSum.difficulty || 'Easy',
-        topic: builtInTwoSum.topic || 'Arrays & Hashing',
-        category: builtInTwoSum.category || 'Array',
-        leetcodeUrl: initialProblem.leetcodeUrl,
-        notes: initialProblem.notes,
-        starterCode: builtInTwoSum.starterCode || generateCppStarter(builtInTwoSum.title),
+        ...builtInMatch,
+        id: p.id,
+        title: p.title || builtInMatch.title,
+        difficulty: p.difficulty || builtInMatch.difficulty || 'Easy',
+        topic: p.topic || builtInMatch.topic || 'Arrays & Hashing',
+        category: p.category || builtInMatch.category || 'Array',
+        leetcodeUrl: p.leetcodeUrl,
+        notes: p.notes,
+        starterCode: builtInMatch.starterCode || generateCppStarter(p.title),
       };
     }
 
     return {
-      id: initialProblem.id,
-      title: initialProblem.title,
-      slug: initialProblem.slug,
-      difficulty: initialProblem.difficulty || 'Easy',
-      topic: initialProblem.topic,
-      category: initialProblem.category,
-      leetcodeUrl: initialProblem.leetcodeUrl,
-      notes: initialProblem.notes,
-      description: `Given an array of integers \`nums\` and an integer \`target\`, return *indices of the two numbers such that they add up to \`target\`*.
+      id: p.id,
+      title: p.title,
+      slug: slug,
+      difficulty: p.difficulty || 'Easy',
+      topic: p.topic || 'General',
+      category: p.category || 'General',
+      leetcodeUrl: p.leetcodeUrl,
+      notes: p.notes,
+      description: p.description || `Given an array of integers \`nums\` and an integer \`target\`, return *indices of the two numbers such that they add up to \`target\`*.
 
 You may assume that each input would have **exactly one solution**, and you may not use the *same* element twice.
 
 You can return the answer in any order.`,
-      examples: [
+      examples: p.examples || [
         {
           input: 'nums = [2,7,11,15], target = 9',
           output: '[0,1]',
@@ -157,23 +181,23 @@ You can return the answer in any order.`,
           output: '[0,1]',
         },
       ],
-      constraints: [
+      constraints: p.constraints || [
         '2 <= nums.length <= 10^4',
         '-10^9 <= nums[i] <= 10^9',
         '-10^9 <= target <= 10^9',
         'Only one valid answer exists.',
       ],
-      starterCode: generateCppStarter(
-        initialProblem.title,
+      starterCode: p.starterCode || generateCppStarter(
+        p.title,
         `class Solution {\npublic:\n    vector<int> twoSum(vector<int>& nums, int target) {\n        \n    }\n};`
       ),
-      hints: [
+      hints: p.hints || [
         'A really brute force way would be to search for all possible pairs of numbers but that would be slow.',
         'Can you use a hash map to store each number and its index as you iterate in O(N) time?',
       ],
-      timeComplexity: 'O(N)',
-      spaceComplexity: 'O(N)',
-      testCases: [
+      timeComplexity: p.timeComplexity || 'O(N)',
+      spaceComplexity: p.spaceComplexity || 'O(N)',
+      testCases: p.testCases || [
         {
           id: 'tc-1',
           input: 'nums = [2,7,11,15], target = 9',
@@ -196,7 +220,7 @@ You can return the answer in any order.`,
 
   const [code, setCode] = useState<string>(() => {
     const initialSaved = localStorage.getItem(`dsa_code_${initialProblem.id}`);
-    if (initialSaved) return initialSaved;
+    if (initialSaved !== null && initialSaved !== undefined) return initialSaved;
     return (
       activeProblem.starterCode ||
       generateCppStarter(
@@ -240,10 +264,22 @@ You can return the answer in any order.`,
   // Panes & Tab control
   const [isProblemPaneCollapsed, setIsProblemPaneCollapsed] = useState(false);
   const [isConsolePaneCollapsed, setIsConsolePaneCollapsed] = useState(false);
+  const [consoleHeight, setConsoleHeight] = useState<number>(() => {
+    const saved = localStorage.getItem('gemcode_console_height');
+    return saved ? parseInt(saved, 10) : 280;
+  });
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [problemPaneTabOverride, setProblemPaneTabOverride] = useState<
     'description' | 'gemini' | 'list' | 'hints' | 'notes' | undefined
-  >(undefined);
+  >(() => {
+    return (localStorage.getItem('gemcode_problem_pane_tab') as any) || 'description';
+  });
+
+  useEffect(() => {
+    if (problemPaneTabOverride) {
+      localStorage.setItem('gemcode_problem_pane_tab', problemPaneTabOverride);
+    }
+  }, [problemPaneTabOverride]);
 
   // Modals
   const [isDirectoryOpen, setIsDirectoryOpen] = useState(false);
@@ -298,12 +334,27 @@ You can return the answer in any order.`,
     });
   };
 
+  useEffect(() => {
+    localStorage.setItem('gemcode_console_height', consoleHeight.toString());
+  }, [consoleHeight]);
+
   const codeSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasInitializedAuthRef = useRef(false);
 
   // Listen to Firebase Auth state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      const prevUser = currentUser;
       setCurrentUser(user);
+
+      if (!hasInitializedAuthRef.current) {
+        hasInitializedAuthRef.current = true;
+        if (!user) {
+          // Initial load while not logged in - do not wipe localStorage
+          return;
+        }
+      }
+
       if (user) {
         // Load user data from Firestore and sync
         try {
@@ -350,7 +401,7 @@ You can return the answer in any order.`,
         } catch (e) {
           console.warn('Could not sync user data from cloud:', e);
         }
-      } else {
+      } else if (prevUser) {
         // User logged out - reset state to default
         setUserProblemStates({});
         setLists(BUILT_IN_LISTS);
@@ -442,6 +493,8 @@ You can return the answer in any order.`,
   // Select problem and fetch details from LeetCode or cache
   const handleSelectProblem = useCallback(
     async (sheetProb: SheetProblem | DSAProblem) => {
+      localStorage.setItem('gemcode_active_problem_id', sheetProb.id);
+
       // 1. Immediately persist code of currently open problem before switching
       if (activeProblemRef.current?.id && codeRef.current) {
         localStorage.setItem(`dsa_code_${activeProblemRef.current.id}`, codeRef.current);
@@ -897,7 +950,10 @@ You can return the answer in any order.`,
           onResetCode={handleResetCode}
           onQuickLoadUrl={handleQuickLoadUrl}
           currentView={currentView}
-          onToggleView={setCurrentView}
+          onToggleView={(view) => {
+            setCurrentView(view);
+            localStorage.setItem('gemcode_current_view', view);
+          }}
           currentUser={currentUser}
           onLoginGoogle={handleGoogleLogin}
           onLogoutGoogle={handleGoogleLogout}
@@ -972,6 +1028,7 @@ You can return the answer in any order.`,
               onApplyCodeToEditor={handleApplyCodeFromGemini}
               onUpdateNotes={handleUpdateNotes}
               activeTabOverride={problemPaneTabOverride}
+              onTabChange={setProblemPaneTabOverride}
               themeMode={themeMode}
             />
           )}
@@ -992,26 +1049,56 @@ You can return the answer in any order.`,
               executionResult={executionResult}
               onOpenGemini={handleOpenGeminiTab}
               themeMode={themeMode}
+              isConsolePaneCollapsed={isConsolePaneCollapsed}
             />
 
             {!isFullScreen && (
-              <ConsolePane
-                isCollapsed={isConsolePaneCollapsed}
-                onToggleCollapse={() => setIsConsolePaneCollapsed(!isConsolePaneCollapsed)}
-                executionResult={executionResult}
-                isRunning={isRunning}
-                testCases={testCases}
-                onAddTestCase={(inp, out) =>
-                  setTestCases([...testCases, { id: `tc-${Date.now()}`, input: inp, expectedOutput: out }])
-                }
-                onDeleteTestCase={(id) =>
-                  setTestCases(testCases.filter((tc) => tc.id !== id))
-                }
-                customInput={customInput}
-                onChangeCustomInput={setCustomInput}
-                onRunCustom={handleRunCode}
-                themeMode={themeMode}
-              />
+              <>
+                {!isConsolePaneCollapsed && (
+                  <div
+                    className={`h-2 w-full cursor-row-resize flex items-center justify-center transition-colors group select-none z-20 ${
+                      themeMode === 'light' ? 'bg-slate-200 hover:bg-blue-500' : 'bg-[#090d16] hover:bg-blue-600 border-t border-slate-800'
+                    }`}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      const startY = e.clientY;
+                      const startHeight = consoleHeight;
+                      const onMouseMove = (moveEvent: MouseEvent) => {
+                        const delta = startY - moveEvent.clientY;
+                        const newHeight = Math.max(120, Math.min(window.innerHeight - 220, startHeight + delta));
+                        setConsoleHeight(newHeight);
+                      };
+                      const onMouseUp = () => {
+                        window.removeEventListener('mousemove', onMouseMove);
+                        window.removeEventListener('mouseup', onMouseUp);
+                      };
+                      window.addEventListener('mousemove', onMouseMove);
+                      window.addEventListener('mouseup', onMouseUp);
+                    }}
+                    title="Drag to resize console height (LeetCode style)"
+                  >
+                    <div className={`w-12 h-1 rounded-full transition-colors ${themeMode === 'light' ? 'bg-slate-400 group-hover:bg-white' : 'bg-slate-600 group-hover:bg-white'}`} />
+                  </div>
+                )}
+                <ConsolePane
+                  isCollapsed={isConsolePaneCollapsed}
+                  onToggleCollapse={() => setIsConsolePaneCollapsed(!isConsolePaneCollapsed)}
+                  executionResult={executionResult}
+                  isRunning={isRunning}
+                  testCases={testCases}
+                  onAddTestCase={(inp, out) =>
+                    setTestCases([...testCases, { id: `tc-${Date.now()}`, input: inp, expectedOutput: out }])
+                  }
+                  onDeleteTestCase={(id) =>
+                    setTestCases(testCases.filter((tc) => tc.id !== id))
+                  }
+                  customInput={customInput}
+                  onChangeCustomInput={setCustomInput}
+                  onRunCustom={handleRunCode}
+                  themeMode={themeMode}
+                  height={consoleHeight}
+                />
+              </>
             )}
           </div>
         </div>

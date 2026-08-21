@@ -47,6 +47,7 @@ interface ProblemPaneProps {
   onApplyCodeToEditor?: (code: string) => void;
   onUpdateNotes?: (problemId: string, notes: string) => void;
   activeTabOverride?: 'description' | 'gemini' | 'list' | 'hints' | 'notes';
+  onTabChange?: (tab: 'description' | 'gemini' | 'list' | 'hints' | 'notes') => void;
   themeMode?: 'dark' | 'light';
 }
 
@@ -72,10 +73,18 @@ export const ProblemPane: React.FC<ProblemPaneProps> = ({
   onApplyCodeToEditor = () => {},
   onUpdateNotes,
   activeTabOverride,
+  onTabChange,
   themeMode = 'dark',
 }) => {
   const isLight = themeMode === 'light';
-  const [activeTab, setActiveTab] = useState<'description' | 'gemini' | 'list' | 'hints' | 'notes'>('description');
+  const [activeTab, setActiveTab] = useState<'description' | 'gemini' | 'list' | 'hints' | 'notes'>(() => {
+    return activeTabOverride || 'description';
+  });
+
+  const handleTabClick = (tab: 'description' | 'gemini' | 'list' | 'hints' | 'notes') => {
+    setActiveTab(tab);
+    onTabChange?.(tab);
+  };
   const [revealedHints, setRevealedHints] = useState<number[]>([]);
   const [noteContent, setNoteContent] = useState<string>(() => {
     return userProblemState?.notes || localStorage.getItem(`dsa_note_${problem.id}`) || '';
@@ -574,7 +583,7 @@ export const ProblemPane: React.FC<ProblemPaneProps> = ({
         }`}
       >
         <button
-          onClick={() => setActiveTab('description')}
+          onClick={() => handleTabClick('description')}
           className={`py-2 px-2.5 flex items-center justify-center gap-1.5 transition-colors border-b-2 shrink-0 ${
             activeTab === 'description'
               ? isLight
@@ -590,7 +599,7 @@ export const ProblemPane: React.FC<ProblemPaneProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveTab('gemini')}
+          onClick={() => handleTabClick('gemini')}
           className={`py-2 px-2.5 flex items-center justify-center gap-1.5 transition-colors border-b-2 shrink-0 ${
             activeTab === 'gemini'
               ? isLight
@@ -606,7 +615,7 @@ export const ProblemPane: React.FC<ProblemPaneProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveTab('list')}
+          onClick={() => handleTabClick('list')}
           className={`py-2 px-2.5 flex items-center justify-center gap-1.5 transition-colors border-b-2 shrink-0 ${
             activeTab === 'list'
               ? isLight
@@ -622,7 +631,7 @@ export const ProblemPane: React.FC<ProblemPaneProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveTab('hints')}
+          onClick={() => handleTabClick('hints')}
           className={`py-2 px-2 flex items-center justify-center gap-1 transition-colors border-b-2 shrink-0 ${
             activeTab === 'hints'
               ? isLight
@@ -638,7 +647,7 @@ export const ProblemPane: React.FC<ProblemPaneProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveTab('notes')}
+          onClick={() => handleTabClick('notes')}
           className={`py-2 px-2 flex items-center justify-center gap-1 transition-colors border-b-2 shrink-0 ${
             activeTab === 'notes'
               ? isLight

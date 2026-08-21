@@ -177,14 +177,22 @@ export async function runAllTestCases(
 
   const allPassed = results.length > 0 && results.every(r => r.passed);
   const stdoutSummary = results
-    .map((r, idx) => `[Case ${idx + 1}] ${r.passed ? 'PASSED ✓' : 'FAILED ✗'} | Expected: ${r.expected || 'N/A'} | Output: ${r.actual || '(no output)'}`)
+    .map((r, idx) => `=== Test Case ${idx + 1}: ${r.passed ? 'PASSED ✓' : 'FAILED ✗'} ===\nInput:\n${r.input}\nExpected Output:\n${r.expected || '(None)'}\nActual Output:\n${r.actual || '(no output)'}\n`)
     .join('\n');
+
+  const failedCases = results.filter(r => !r.passed);
+  const detailedStderr = !allPassed
+    ? `Test cases failed (${results.filter(r => r.passed).length}/${results.length} passed).\n\n` +
+      failedCases
+        .map((r, idx) => `[Failed Case #${idx + 1}]\nInput: ${r.input}\nExpected: ${r.expected || '(None)'}\nGot: ${r.actual || '(no output)'}`)
+        .join('\n\n')
+    : '';
 
   return {
     stdout: stdoutSummary,
-    stderr: !allPassed ? 'Test cases failed. Output did not match expected result.' : '',
+    stderr: detailedStderr,
     output: allPassed ? `All ${results.length} test case(s) passed!` : `${results.filter(r => r.passed).length} of ${results.length} test cases passed.`,
-    error: !allPassed ? 'Some test cases failed.' : undefined,
+    error: !allPassed ? 'Some test cases failed to match expected output.' : undefined,
     status: allPassed ? 'success' : 'failed',
     executionTimeMs: totalExecutionTime,
     memoryKb: 14200,

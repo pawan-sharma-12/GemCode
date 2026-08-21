@@ -22,7 +22,8 @@ import {
   BookOpen,
   RotateCcw,
   ExternalLink,
-  ChevronDown
+  ChevronDown,
+  Terminal
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { DSAProblem, ProblemList, SheetProblem } from '../types/dsa';
@@ -104,6 +105,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   isSolved = false,
   onToggleSolved,
   onOpenSettings,
+  isConsolePaneCollapsed = false,
+  onToggleConsolePane,
 }) => {
   const effectiveUser = currentUser !== undefined ? currentUser : (user || null);
   const handleToggleTheme = onToggleThemeMode || onToggleTheme || (() => {});
@@ -171,7 +174,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Code2 className="w-4.5 h-4.5" />
             </div>
             <span className="font-bold text-base tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent hidden sm:inline-block">
-              DSA Studio
+              GemCode
             </span>
           </button>
         </div>
@@ -310,6 +313,22 @@ export const Navbar: React.FC<NavbarProps> = ({
             title="Keyboard Shortcuts"
           >
             <Keyboard className="w-4 h-4" />
+          </button>
+        )}
+
+        {currentView === 'ide' && onToggleConsolePane && (
+          <button
+            onClick={onToggleConsolePane}
+            className={`p-1.5 rounded-lg transition-colors ${
+              !isConsolePaneCollapsed
+                ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                : themeMode === 'light'
+                ? 'hover:bg-slate-100 text-slate-600'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+            title={isConsolePaneCollapsed ? 'Open Console & Test Cases (Alt+C)' : 'Collapse Console'}
+          >
+            <Terminal className="w-4 h-4" />
           </button>
         )}
 

@@ -30,6 +30,7 @@ interface ConsolePaneProps {
   onChangeCustomInput: (val: string) => void;
   onRunCustom: () => void;
   themeMode?: 'dark' | 'light';
+  height?: number;
 }
 
 export const ConsolePane: React.FC<ConsolePaneProps> = ({
@@ -44,6 +45,7 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
   onChangeCustomInput,
   onRunCustom,
   themeMode = 'dark',
+  height = 280,
 }) => {
   const isLight = themeMode === 'light';
   const [activeTab, setActiveTab] = useState<'testcases' | 'custom' | 'output'>('testcases');
@@ -51,6 +53,7 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
   const [isAddingCase, setIsAddingCase] = useState(false);
   const [newCaseInput, setNewCaseInput] = useState('');
   const [newCaseExpected, setNewCaseExpected] = useState('');
+  const [isMaximized, setIsMaximized] = useState(false);
 
   // Auto-switch to output tab if a compilation error or runtime crash occurred
   useEffect(() => {
@@ -71,21 +74,22 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
   if (isCollapsed) {
     return (
       <div
-        className={`h-9 border-t flex items-center justify-between px-4 shrink-0 transition-colors ${
-          isLight ? 'bg-slate-100 border-slate-300' : 'bg-[#0d131f] border-slate-800'
+        onClick={onToggleCollapse}
+        className={`h-9 border-t flex items-center justify-between px-4 shrink-0 transition-colors cursor-pointer select-none ${
+          isLight ? 'bg-slate-100 hover:bg-slate-200 border-slate-300' : 'bg-[#0d131f] hover:bg-[#121a29] border-slate-800'
         }`}
+        title="Click to Open Console & Test Cases"
       >
         <div className="flex items-center gap-3">
-          <button
-            onClick={onToggleCollapse}
+          <div
             className={`flex items-center gap-2 text-xs font-semibold transition-colors ${
-              isLight ? 'text-slate-700 hover:text-slate-900' : 'text-slate-300 hover:text-white'
+              isLight ? 'text-slate-700' : 'text-slate-300'
             }`}
           >
-            <ChevronUp className="w-4 h-4 text-blue-500" />
+            <ChevronUp className="w-4 h-4 text-blue-500 animate-bounce" />
             <Terminal className="w-3.5 h-3.5" />
             <span>Console & Test Cases</span>
-          </button>
+          </div>
           {executionResult && (
             <div className="flex items-center gap-2">
               {executionResult.status === 'success' && (
@@ -108,8 +112,11 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
           )}
         </div>
         <button
-          onClick={onToggleCollapse}
-          className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleCollapse();
+          }}
+          className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold px-2 py-1"
         >
           Open Console
         </button>
@@ -119,7 +126,8 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
 
   return (
     <div
-      className={`h-64 md:h-72 border-t flex flex-col shrink-0 overflow-hidden transition-all ${
+      style={isMaximized ? { height: '75vh' } : { height: `${height}px` }}
+      className={`border-t flex flex-col shrink-0 overflow-hidden transition-all duration-75 ${
         isLight ? 'bg-white border-slate-200' : 'bg-[#0d131f] border-slate-800'
       }`}
     >
@@ -219,15 +227,27 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
             </div>
           ) : null}
 
-          <button
-            onClick={onToggleCollapse}
-            title="Minimize Console"
-            className={`p-1 rounded transition-colors ${
-              isLight ? 'text-slate-500 hover:text-slate-900 hover:bg-slate-200' : 'text-slate-400 hover:text-white hover:bg-slate-800'
-            }`}
-          >
-            <ChevronDown className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setIsMaximized(!isMaximized)}
+              title={isMaximized ? 'Restore Console Height' : 'Maximize Console Height'}
+              className={`p-1 rounded transition-colors ${
+                isLight ? 'text-slate-500 hover:text-slate-900 hover:bg-slate-200' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
+
+            <button
+              onClick={onToggleCollapse}
+              title="Minimize Console"
+              className={`p-1 rounded transition-colors ${
+                isLight ? 'text-slate-500 hover:text-slate-900 hover:bg-slate-200' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
